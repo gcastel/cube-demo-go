@@ -60,6 +60,7 @@ const htmlContent = `
 
         var angle = 0;
 		var appURI = window.location.protocol + "//" + window.location.host;
+		var currentRequest = false;
 
         var faces;
 		var vertices2d;
@@ -108,26 +109,38 @@ const htmlContent = `
                 ctx.stroke()
             }
 
-			angle += 2
-			if (angle >= 360) {
-				angle = 0;
+			if (!currentRequest) {
+				currentRequest = true;
+			    httpGetAsync(appURI + "/computeVertices?angle="+angle, function(json) {
+				   document.getElementById('serverAnswer').innerHTML = json
+			       obj = JSON.parse(json)
+			       angle = obj.angle
+			       faces = obj.pointOrder
+                   vertices2d = obj.vertices
+			       angle += 2
+			       if (angle >= 360) {
+				     angle = 0;
+			       }
+				   currentRequest = false;
+			    })
 			}
-			httpGetAsync(appURI + "/computeVertices?angle="+angle, function(json) {
-				document.getElementById('serverAnswer').innerHTML = json
-			    obj = JSON.parse(json)
-			    angle = obj.angle
-			    faces = obj.pointOrder
-                vertices2d = obj.vertices
-			})
         }
 
 		function httpGetAsync(theUrl, callback) {
             var xmlHttp = new XMLHttpRequest();
 	        xmlHttp.onreadystatechange = function() {
-		    if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
-			    callback(xmlHttp.responseText);
-			}
+		        if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+			      callback(xmlHttp.responseText);
+			  }
 			xmlHttp.open("GET", theUrl, true); // true for asynchronous
+		    xmlHttp.timeout = 500;
+			xmlHttp.onerror = function() {
+				currentRequest = false;
+			};
+			xmlHttp.onabort = function() {
+				currentRequest = false;
+			};
+
 			xmlHttp.send(null);
 		}
     </script>
@@ -141,7 +154,7 @@ Wait between requests : <span id="speed"></span> ms
 <button type="button" onclick="tempo += 10; startDemo();">Slower</button>&nbsp;
 <button type="button" onclick="tempo -= 10; startDemo();">Faster</button>&nbsp;
 </p>
-
+<p>Source : <a href="https://github.com/gcastel/cube-demo-go">https://github.com/gcastel/cube-demo-go</a></p>
 <h1>Response from server : </h1>
 <p id="serverAnswer"></p>
 </body>
@@ -192,6 +205,7 @@ func main() {
 		panic(err)
 	}
 
+	// If we have a CUBEHOST environment variable, use it as our hostname
 	envName := os.Getenv("CUBEHOST")
 
 	var serverAnswer ServerAnswer
@@ -209,7 +223,7 @@ func main() {
 		fmt.Fprintf(w, htmlContent)
 	})
 
-	// HTML page entry point
+	// Health check entry point
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Health : OK")
 	})
