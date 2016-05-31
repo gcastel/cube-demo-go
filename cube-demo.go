@@ -131,6 +131,7 @@ const htmlContent = `
 	        xmlHttp.onreadystatechange = function() {
 		        if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
 			      callback(xmlHttp.responseText);
+				currentRequest = false;
 			  }
 			xmlHttp.open("GET", theUrl, true); // true for asynchronous
 		    xmlHttp.timeout = 500;
